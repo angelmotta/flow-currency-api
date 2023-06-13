@@ -58,6 +58,14 @@ func main() {
 		idDstCurr := chi.URLParam(r, "idDstCurrency")
 		log.Println("idSrcCurrency:", idSrcCurr)
 		log.Println("idDstCurrency:", idDstCurr)
+
+		// Get query params (amount=100)
+		receivedAmount := r.URL.Query().Get("amount")
+		if receivedAmount != "" {
+			log.Println("receivedAmount:", receivedAmount)
+			// TODO: convert string to float64 and multiply by the exchange rate
+		}
+
 		_, err := fmt.Fprintf(w, "idSrcCurrency: %s, idDstCurrency: %s\n", idSrcCurr, idDstCurr)
 		if err != nil {
 			return
