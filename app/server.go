@@ -6,7 +6,9 @@ import (
 	"github.com/angelmotta/flow-currency-api/internal/exchangestore"
 	"github.com/go-chi/chi/v5"
 	"log"
+	"math"
 	"net/http"
+	"strconv"
 )
 
 // CurrencyServer is the main struct for the Currency API service
@@ -16,9 +18,11 @@ type CurrencyServer struct {
 }
 
 type exchangeResponse struct {
-	SrcCurrency string `json:"srcCurrency"`
-	DstCurrency string `json:"dstCurrency"`
-	Rate        string `json:"rate"`
+	SrcCurrency   string  `json:"srcCurrency"`
+	DstCurrency   string  `json:"dstCurrency"`
+	Rate          string  `json:"rate"`
+	MoneyReceived string  `json:"moneyReceived,omitempty"`
+	MoneySent     float64 `json:"moneySent,omitempty"`
 }
 
 type errorResponse struct {
@@ -68,13 +72,6 @@ func (cs *CurrencyServer) GetExchangeHandler(w http.ResponseWriter, r *http.Requ
 	log.Println("idSrcCurrency:", idSrcCurr)
 	log.Println("idDstCurrency:", idDstCurr)
 
-	// Get query params (Eg. amount=100)
-	receivedAmount := r.URL.Query().Get("amount")
-	if receivedAmount != "" {
-		log.Println("receivedAmount:", receivedAmount)
-		// TODO: Prepare response -> convert string to float64 and multiply by the exchange rate
-	}
-
 	// Get Exchange Rate from DB
 	pairCurrency := idSrcCurr + "_" + idDstCurr
 	exchangeRate, err := cs.Rdb.GetExchange(pairCurrency)
@@ -82,14 +79,37 @@ func (cs *CurrencyServer) GetExchangeHandler(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Error DB service", http.StatusInternalServerError)
 		return
 	}
+	// Get received amount from query param
+	receivedAmount := r.URL.Query().Get("amount")
+	var moneyConverted float64
+	if receivedAmount != "" {
+		log.Println("receivedAmount:", receivedAmount)
+		// convert string receivedAmount to float64
+		receivedMoney, err := strconv.ParseFloat(receivedAmount, 64)
+		if err != nil {
+			responseError := errorResponse{
+				Details: fmt.Sprintf("Exchange rate not found: '%v' to '%v'", idSrcCurr, idDstCurr),
+			}
+			renderJsonUtil(w, responseError, http.StatusBadRequest)
+			log.Println("test error casting")
+			return
+		}
+		rate, err := strconv.ParseFloat(exchangeRate, 64)
+		moneyConverted = receivedMoney / rate
+		// Round
+		moneyConverted = math.Round(moneyConverted*100) / 100
+	}
+
 	var response interface{}
 	var statusCode int
-	// Verify if exchangeRate is empty
+	// Verify if exchangeRate is not empty
 	if exchangeRate != "" {
 		response = exchangeResponse{
-			SrcCurrency: idSrcCurr,
-			DstCurrency: idDstCurr,
-			Rate:        exchangeRate,
+			SrcCurrency:   idSrcCurr,
+			DstCurrency:   idDstCurr,
+			Rate:          exchangeRate,
+			MoneyReceived: receivedAmount,
+			MoneySent:     moneyConverted,
 		}
 		statusCode = http.StatusOK
 	} else {
