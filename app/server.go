@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/angelmotta/flow-currency-api/internal/exchangestore"
 	"github.com/go-chi/chi/v5"
@@ -12,6 +13,16 @@ import (
 type CurrencyServer struct {
 	Rdb    *exchangestore.ExchangeStore
 	Router *chi.Mux
+}
+
+type exchangeResponse struct {
+	SrcCurrency string `json:"srcCurrency"`
+	DstCurrency string `json:"dstCurrency"`
+	Rate        string `json:"rate"`
+}
+
+type errorResponse struct {
+	Details string `json:"details"`
 }
 
 // NewCurrencyServer creates a new CurrencyServer
@@ -57,15 +68,54 @@ func (cs *CurrencyServer) GetExchangeHandler(w http.ResponseWriter, r *http.Requ
 	log.Println("idSrcCurrency:", idSrcCurr)
 	log.Println("idDstCurrency:", idDstCurr)
 
-	// Get query params (amount=100)
+	// Get query params (Eg. amount=100)
 	receivedAmount := r.URL.Query().Get("amount")
 	if receivedAmount != "" {
 		log.Println("receivedAmount:", receivedAmount)
-		// TODO: convert string to float64 and multiply by the exchange rate
+		// TODO: Prepare response -> convert string to float64 and multiply by the exchange rate
 	}
 
-	_, err := fmt.Fprintf(w, "idSrcCurrency: %s, idDstCurrency: %s\n", idSrcCurr, idDstCurr)
+	// Get Exchange Rate from DB
+	pairCurrency := idSrcCurr + "_" + idDstCurr
+	exchangeRate, err := cs.Rdb.GetExchange(pairCurrency)
 	if err != nil {
+		http.Error(w, "Error DB service", http.StatusInternalServerError)
+		return
+	}
+	var response interface{}
+	var statusCode int
+	// Verify if exchangeRate is empty
+	if exchangeRate != "" {
+		response = exchangeResponse{
+			SrcCurrency: idSrcCurr,
+			DstCurrency: idDstCurr,
+			Rate:        exchangeRate,
+		}
+		statusCode = http.StatusOK
+	} else {
+		response = errorResponse{
+			Details: fmt.Sprintf("Exchange rate not found: '%v' to '%v'", idSrcCurr, idDstCurr),
+		}
+		statusCode = http.StatusNotFound
+	}
+
+	renderJsonUtil(w, response, statusCode)
+}
+
+func renderJsonUtil(w http.ResponseWriter, payload interface{}, statusCode int) {
+	responseJson, err := json.Marshal(payload)
+	if err != nil {
+		// Marshal error (internal server error)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Set headers
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	// Write Json response
+	_, err = w.Write(responseJson)
+	if err != nil {
+		log.Printf("Error sending response: %v", err.Error())
 		return
 	}
 }

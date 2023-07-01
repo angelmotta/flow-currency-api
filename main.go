@@ -12,8 +12,5 @@ func main() {
 	currServer.Routes()
 
 	// Start HTTP server
-	err := http.ListenAndServe(":8080", currServer.Router)
-	if err != nil {
-		log.Panicf("error starting server: %v", err)
-	}
+	log.Fatal(http.ListenAndServe(":8080", currServer.Router))
 }
