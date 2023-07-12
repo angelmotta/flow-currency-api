@@ -12,5 +12,6 @@ func main() {
 	currServer.Routes()
 
 	// Start HTTP server
-	log.Fatal(http.ListenAndServe(":8080", currServer.Router))
+	log.Println("Running flowApp-currencyServer at port 8081")
+	log.Fatal(http.ListenAndServe(":8081", currServer.Router))
 }
