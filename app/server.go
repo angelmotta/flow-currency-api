@@ -65,7 +65,7 @@ func (cs *CurrencyServer) GetAllExchangesHandler(w http.ResponseWriter, r *http.
 	}
 }
 
-// GetExchangesHandler retrieves all available currency exchanges for a given currency
+// GetExchangesHandler retrieves all available currency exchanges for the given currency
 func (cs *CurrencyServer) GetExchangesHandler(w http.ResponseWriter, r *http.Request) {
 	idSrcCurr := chi.URLParam(r, "idSrcCurrency")
 	log.Println("idSrcCurrency:", idSrcCurr)
@@ -75,7 +75,7 @@ func (cs *CurrencyServer) GetExchangesHandler(w http.ResponseWriter, r *http.Req
 	}
 }
 
-// GetExchangeHandler retrieves a specific currency exchange for a given currency
+// GetExchangeHandler retrieves a specific currency exchange
 func (cs *CurrencyServer) GetExchangeHandler(w http.ResponseWriter, r *http.Request) {
 	idSrcCurr := chi.URLParam(r, "idSrcCurrency")
 	idDstCurr := chi.URLParam(r, "idDstCurrency")
@@ -83,13 +83,13 @@ func (cs *CurrencyServer) GetExchangeHandler(w http.ResponseWriter, r *http.Requ
 	log.Println("idDstCurrency:", idDstCurr)
 
 	// Get Exchange Rate from DB
-	pairCurrency := idDstCurr + "_" + idSrcCurr //usd_pen (casa vende de dolares)
+	pairCurrency := idDstCurr + "_" + idSrcCurr // usd_pen (casa vende USD)
 	exchangeRate, err := cs.Rdb.GetExchange(pairCurrency)
 	if err != nil {
 		http.Error(w, "Error DB service", http.StatusInternalServerError)
 		return
 	}
-	// Get received amount from query param
+	// Check if 'amount' exist in query param
 	receivedAmount := r.URL.Query().Get("amount")
 	var moneyConverted float64
 	if receivedAmount != "" {
